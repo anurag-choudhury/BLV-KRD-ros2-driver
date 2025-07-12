@@ -17,8 +17,8 @@
           <plugin>blvr_diffbot_hardware/BlvrDiffbotSystemHardware</plugin>
           <param name="example_param_hw_start_duration_sec">2.0</param>
           <param name="example_param_hw_stop_duration_sec">3.0</param>
-          <param name="device_name">/dev/ttyUSB0</param>
-          <param name="gear_ratio">50.0</param>
+          <param name="device_name">/dev/ttyACM0</param>
+          <param name="gear_ratio">20.0</param>
           <param name="encoder_resolution">6000.0</param>
         </xacro:unless>
       </hardware>

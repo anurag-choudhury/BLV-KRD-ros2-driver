@@ -16,6 +16,11 @@ find_package(hardware_interface REQUIRED)
 find_package(pluginlib REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(rclcpp_lifecycle REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(LIBMODBUS REQUIRED libmodbus)
+
+include_directories(${LIBMODBUS_INCLUDE_DIRS})
+link_directories(${LIBMODBUS_LIBRARY_DIRS})
 
 
 ## COMPILE
@@ -39,6 +44,10 @@ ament_target_dependencies(
 )
 
 pluginlib_export_plugin_description_file(hardware_interface blvr_diffbot_hardware.xml)
+
+target_link_libraries(${PROJECT_NAME}
+  ${LIBMODBUS_LIBRARIES}
+)
 
 # INSTALL
 install(

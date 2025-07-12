@@ -1,6 +1,6 @@
 controller_manager:
   ros__parameters:
-    update_rate: 100  # Hz
+    update_rate: 1  # Hz
 
     diff_drive_controller:
       type: diff_drive_controller/DiffDriveController
@@ -18,7 +18,8 @@ diff_drive_controller:
     wheel_separation_multiplier : 1.0
     left_wheel_radius_multiplier : 1.0
     right_wheel_radius_multiplier : 1.0
-
+    # cmd_vel_topic: "/cmd_vel_stamped" 
+    use_stamped_vel: false  
     odom_frame_id: odom
     base_frame_id: base_link
 

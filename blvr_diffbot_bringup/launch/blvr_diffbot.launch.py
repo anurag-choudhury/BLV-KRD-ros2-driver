@@ -110,6 +110,9 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=["diff_drive_controller", "--controller-manager", "/controller_manager"],
+        remappings=[
+            ('/cmd_vel_stamped', '/diff_drive_controller/cmd_vel')
+        ],
     )
 
     velocity_converter = Node(
@@ -157,7 +160,7 @@ def generate_launch_description():
         joint_state_broadcaster_spawner,
         diff_drive_controller_spawner,
         velocity_converter,
-        front_urg_node,
-        rear_urg_node,
-        stop_daemon_node,
+        #front_urg_node,
+        #rear_urg_node,
+        #stop_daemon_node,
     ])
