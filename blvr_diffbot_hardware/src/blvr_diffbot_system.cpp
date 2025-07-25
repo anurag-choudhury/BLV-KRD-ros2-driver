@@ -1,11 +1,10 @@
 #include "blvr_diffbot_hardware/blvr_diffbot_system.hpp"
-
 #include <chrono>
 #include <cmath>
 #include <limits>
 #include <memory>
 #include <vector>
-
+#include <future>
 #include "hardware_interface/types/hardware_interface_type_values.hpp"
 #include "rclcpp/rclcpp.hpp"
 
@@ -37,8 +36,6 @@ namespace blvr_diffbot_hardware
       return hardware_interface::CallbackReturn::ERROR;
     }
 
-    RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Parameters loaded");
-
     hw_positions_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     hw_velocities_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
     hw_efforts_.resize(info_.joints.size(), std::numeric_limits<double>::quiet_NaN());
@@ -46,14 +43,11 @@ namespace blvr_diffbot_hardware
     prev_step_.resize(info_.joints.size());
 
     serial_port_ = std::make_shared<BlvrComunicator>();
-    RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Hardware interface initialized");
-
     return hardware_interface::CallbackReturn::SUCCESS;
   }
 
   std::vector<hardware_interface::StateInterface> BlvrDiffbotSystemHardware::export_state_interfaces()
   {
-    RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Exporting state interfaces...");
     std::vector<hardware_interface::StateInterface> state_interfaces;
     for (auto i = 0u; i < info_.joints.size(); i++)
     {
@@ -66,7 +60,6 @@ namespace blvr_diffbot_hardware
 
   std::vector<hardware_interface::CommandInterface> BlvrDiffbotSystemHardware::export_command_interfaces()
   {
-    RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Exporting command interfaces...");
     std::vector<hardware_interface::CommandInterface> command_interfaces;
     for (auto i = 0u; i < info_.joints.size(); i++)
     {
@@ -77,7 +70,6 @@ namespace blvr_diffbot_hardware
 
   hardware_interface::CallbackReturn BlvrDiffbotSystemHardware::on_activate(const rclcpp_lifecycle::State &)
   {
-    RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Activating hardware...");
     rclcpp::sleep_for(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(hw_start_sec_)));
 
     for (auto i = 0u; i < hw_positions_.size(); i++)
@@ -90,42 +82,34 @@ namespace blvr_diffbot_hardware
       }
     }
 
-    RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Opening serial device: %s", device_name_.c_str());
-
     if (serial_port_->openDevice(device_name_, 230400, 'E', 8, 1) != BlvrComunicator::return_type::SUCCESS)
     {
       RCLCPP_FATAL(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Failed to open device.");
       return hardware_interface::CallbackReturn::ERROR;
     }
-    // Excite both motors
+
+    std::vector<std::future<void>> futures;
     for (int motor_id = 1; motor_id <= 2; motor_id++)
     {
-      // if (motor_id == 2)
-      //   continue;
-      if (serial_port_->setExcitation(motor_id) != 2)
-
-      {
-        RCLCPP_WARN(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Failed to excite motor %d", motor_id);
-      }
-      else
-      {
-        RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Motor %d excited successfully", motor_id);
-      }
-      usleep(250000);
-      serial_port_->writeSpeedCommand(motor_id, 150);
-      usleep(250000);
+      futures.emplace_back(std::async(std::launch::async, [&, motor_id]() {
+        if (serial_port_->setExcitation(motor_id) != 2)
+          RCLCPP_WARN(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Failed to excite motor %d", motor_id);
+        else
+          RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Motor %d excited successfully", motor_id);
+      }));
     }
-    RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "System successfully started");
+    for (auto &f : futures) f.wait();
+
     return hardware_interface::CallbackReturn::SUCCESS;
   }
 
   hardware_interface::CallbackReturn BlvrDiffbotSystemHardware::on_deactivate(const rclcpp_lifecycle::State &)
   {
-    RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Deactivating hardware...");
     rclcpp::sleep_for(std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::duration<double>(hw_stop_sec_)));
 
+    serial_port_->writeSpeedCommand(1, 0);
+    serial_port_->writeSpeedCommand(2, 0);
     serial_port_->closeDevice();
-    RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "System successfully stopped");
     return hardware_interface::CallbackReturn::SUCCESS;
   }
 
@@ -134,8 +118,6 @@ namespace blvr_diffbot_hardware
     RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Reading motor states...");
     for (size_t i = 0; i < hw_commands_.size(); i++)
     {
-      if (i == 1)
-        continue;
       int motor_id = i + 1;
       int motor_direction = (i % 2 == 0) ? 1 : -1;
 
@@ -146,7 +128,7 @@ namespace blvr_diffbot_hardware
         RCLCPP_WARN(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Failed to read rpm from motor %d", motor_id);
       if (serial_port_->readTorque(motor_id, &torque) != 0)
         RCLCPP_WARN(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Failed to read torque from motor %d", motor_id);
-      RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "RPM %d STEP %d", rpm, step);
+      RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "RPM %d STEP %d TORQUE %d", rpm, step, torque);
       int diff_step = step - prev_step_[i];
       prev_step_[i] = step;
 
@@ -160,20 +142,27 @@ namespace blvr_diffbot_hardware
 
   hardware_interface::return_type BlvrDiffbotSystemHardware::write(const rclcpp::Time &, const rclcpp::Duration &)
   {
-    RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Writing motor commands...");
+    static std::vector<int> last_sent_rpm(hw_commands_.size(), std::numeric_limits<int>::quiet_NaN());
+
+    std::vector<std::future<void>> tasks;
+
     for (size_t i = 0; i < hw_commands_.size(); i++)
     {
-      if (i == 1)
-        continue;
       int motor_id = i + 1;
       int motor_direction = (i % 2 == 0) ? 1 : -1;
       int rpm = motor_direction * static_cast<int>(hw_commands_[i] * 60.0 * gear_ratio_ / (2.0 * M_PI));
 
-      if (serial_port_->writeSpeedCommand(motor_id, rpm) != 0)
+      if (rpm != last_sent_rpm[i])
       {
-        RCLCPP_WARN(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Failed to send speed to motor %d", motor_id);
+        last_sent_rpm[i] = rpm;
+        tasks.emplace_back(std::async(std::launch::async, [=]() {
+          std::this_thread::sleep_for(std::chrono::milliseconds(10));
+          serial_port_->writeSpeedCommand(motor_id, rpm);
+        }));
       }
     }
+
+    for (auto &t : tasks) t.wait();
 
     return hardware_interface::return_type::OK;
   }
