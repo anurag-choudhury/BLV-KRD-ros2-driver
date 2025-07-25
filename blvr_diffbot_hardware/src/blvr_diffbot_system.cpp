@@ -92,7 +92,7 @@ namespace blvr_diffbot_hardware
 
     RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Opening serial device: %s", device_name_.c_str());
 
-    if (serial_port_->openDevice(device_name_, 9600, 'N', 8, 1) != BlvrComunicator::return_type::SUCCESS)
+    if (serial_port_->openDevice(device_name_, 230400, 'E', 8, 1) != BlvrComunicator::return_type::SUCCESS)
     {
       RCLCPP_FATAL(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Failed to open device.");
       return hardware_interface::CallbackReturn::ERROR;
@@ -100,8 +100,8 @@ namespace blvr_diffbot_hardware
     // Excite both motors
     for (int motor_id = 1; motor_id <= 2; motor_id++)
     {
-      if (motor_id == 2)
-        continue;
+      // if (motor_id == 2)
+      //   continue;
       if (serial_port_->setExcitation(motor_id) != 2)
 
       {
@@ -111,8 +111,9 @@ namespace blvr_diffbot_hardware
       {
         RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Motor %d excited successfully", motor_id);
       }
-      usleep(200000);
+      usleep(250000);
       serial_port_->writeSpeedCommand(motor_id, 150);
+      usleep(250000);
     }
     RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "System successfully started");
     return hardware_interface::CallbackReturn::SUCCESS;

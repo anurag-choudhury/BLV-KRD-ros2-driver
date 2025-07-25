@@ -36,13 +36,6 @@ namespace blvr_diffbot_hardware
       exit(1);
     }
 
-    // if (modbus_set_slave(ctx_, slave_id) == -1)
-    // {
-    //   std::cerr << "Invalid slave ID: " << modbus_strerror(errno) << std::endl;
-    //   modbus_free(ctx_);
-    //   exit(1);
-    // }
-
     std::cout << "Exited Initialized function" << std::endl;
     return return_type::SUCCESS;
   }
@@ -59,26 +52,6 @@ namespace blvr_diffbot_hardware
 
   int BlvrComunicator::setExcitation(int motor_id)
   {
-
-    // if (!ctx_)
-    //   return -1;
-
-    // modbus_set_slave(ctx_, motor_id);
-
-    // // Try swapping order in case MSW/LSW are expected differently
-    // uint16_t data[2] = {0x0001, 0x0000}; // LSW first instead of MSW
-
-    // int rc = modbus_write_registers(ctx_, 0x007C, 2, data);
-    // if (rc == -1)
-    // {
-    //   std::cerr << "[Excitation Error] Write failed to slave " << motor_id
-    //             << " at 0x007C: " << modbus_strerror(errno) << std::endl;
-    //   return -1;
-    // }
-
-    // std::cout << "[Excitation] Motor " << motor_id << " excited successfully, rc=" << rc << std::endl;
-    // return rc;
-
     int rc = writeRegister(motor_id, 0x007C, 1);
     if (rc != 2)
     {
@@ -124,11 +97,11 @@ namespace blvr_diffbot_hardware
     rpm = std::abs(rpm);
     // Trigger = 1 (normal start)
     const int mode = 16; // Continuous speed control
-    const int position = 1000000;
+    const int position = 0;
     const int acc_rate = 1000;
-    const int dec_rate = 1000;
-    const int torque = 20000; // 50.0%
-    const int trigger = 16;
+    const int dec_rate = 2500;
+    const int torque = 1000; // 50.0%
+    const int trigger = 1;
     std::cout << "rpm" << rpm;
     auto write32 = [&](int start_reg, int value) -> bool
     {
@@ -148,29 +121,14 @@ namespace blvr_diffbot_hardware
     bool ok =
         write32(90, 16) &&
         write32(92, position) &&
-        write32(94, 2000000) &&
+        write32(94, 1000) &&
         write32(96, acc_rate) &&
         write32(98, dec_rate) &&
-        // write32(100, torque) &&
-        write32(102, 16) &&
-        write32(552, 0);
-
+        write32(100, torque) &&
+        write32(102, trigger);
     return ok
                ? 0
                : -1;
-
-    // int rc1 = writeRegister(motor_id, 0x0484, rpm);
-    // int rc2 = writeRegister(motor_id, 0x007C, command);
-
-    // if (rc1 == -1)
-    // {
-    //   std::cerr << "[Motor " << motor_id << "] Failed to write RPM\n";
-    // }
-    // if (rc2 == -1)
-    // {
-    //   std::cerr << "[Motor " << motor_id << "] Failed to write command\n";
-    // }
-    // return (rc1 == -1 || rc2 == -1) ? -1 : 0;
   }
 
   int BlvrComunicator::readRegister(int motor_id, int addr, int *value)
@@ -195,8 +153,8 @@ namespace blvr_diffbot_hardware
     modbus_set_slave(ctx_, motor_id);
 
     uint16_t data[2];
-    data[0] = value & 0xFFFF;         // Lower 16 bits first (LSW)
-    data[1] = (value >> 16) & 0xFFFF; // Upper 16 bits next (MSW)
+    data[0] = (value >> 16) & 0xFFFF;         // Lower 16 bits first (LSW)
+    data[1] = value & 0xFFFF; // Upper 16 bits next (MSW)
 
     int rc = modbus_write_registers(ctx_, addr, 2, data);
     if (rc == -1)
