@@ -88,17 +88,24 @@ namespace blvr_diffbot_hardware
       return hardware_interface::CallbackReturn::ERROR;
     }
 
-    std::vector<std::future<void>> futures;
-    for (int motor_id = 1; motor_id <= 2; motor_id++)
-    {
-      futures.emplace_back(std::async(std::launch::async, [&, motor_id]() {
-        if (serial_port_->setExcitation(motor_id) != 2)
-          RCLCPP_WARN(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Failed to excite motor %d", motor_id);
-        else
-          RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Motor %d excited successfully", motor_id);
-      }));
+    // std::vector<std::future<void>> futures;
+    // for (int motor_id = 1; motor_id <= 2; motor_id++)
+    // {
+    //   futures.emplace_back(std::async(std::launch::async, [&, motor_id]() {
+    //     if (serial_port_->setExcitation(motor_id) != 2)
+    //       RCLCPP_WARN(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Failed to excite motor %d", motor_id);
+    //     else
+    //       RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Motor %d excited successfully", motor_id);
+    //   }));
+    // }
+    // for (auto &f : futures) f.wait();
+    for (int motor_id = 1; motor_id <= 2; ++motor_id) {
+      if (serial_port_->setExcitation(motor_id) != 2)
+        RCLCPP_WARN(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Failed to excite motor %d", motor_id);
+      else
+        RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Motor %d excited successfully", motor_id);
     }
-    for (auto &f : futures) f.wait();
+
 
     return hardware_interface::CallbackReturn::SUCCESS;
   }
@@ -115,7 +122,7 @@ namespace blvr_diffbot_hardware
 
   hardware_interface::return_type BlvrDiffbotSystemHardware::read(const rclcpp::Time &, const rclcpp::Duration &)
   {
-    RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Reading motor states...");
+    // RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Reading motor states...");
     for (size_t i = 0; i < hw_commands_.size(); i++)
     {
       int motor_id = i + 1;
@@ -128,7 +135,7 @@ namespace blvr_diffbot_hardware
         RCLCPP_WARN(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Failed to read rpm from motor %d", motor_id);
       if (serial_port_->readTorque(motor_id, &torque) != 0)
         RCLCPP_WARN(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Failed to read torque from motor %d", motor_id);
-      RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "RPM %d STEP %d TORQUE %d", rpm, step, torque);
+      // RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "RPM %d STEP %d TORQUE %d", rpm, step, torque);
       int diff_step = step - prev_step_[i];
       prev_step_[i] = step;
 
@@ -140,32 +147,70 @@ namespace blvr_diffbot_hardware
     return hardware_interface::return_type::OK;
   }
 
+  // hardware_interface::return_type BlvrDiffbotSystemHardware::write(const rclcpp::Time &, const rclcpp::Duration &)
+  // {
+  //   static std::vector<int> last_sent_rpm(hw_commands_.size(), std::numeric_limits<int>::quiet_NaN());
+
+  //   std::vector<std::future<void>> tasks;
+
+  //   for (size_t i = 0; i < hw_commands_.size(); i++)
+  //   {
+  //     int motor_id = i + 1;
+  //     int motor_direction = (i % 2 == 0) ? 1 : -1;
+  //     int rpm = motor_direction * static_cast<int>(hw_commands_[i] * 60.0 * gear_ratio_ / (2.0 * M_PI));
+
+  //     if (rpm != last_sent_rpm[i])
+  //     {
+  //       last_sent_rpm[i] = rpm;
+  //       tasks.emplace_back(std::async(std::launch::async, [=]() {
+  //         std::this_thread::sleep_for(std::chrono::milliseconds(10));
+
+  //         serial_port_->writeSpeedCommand(motor_id, rpm);
+  //         RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"), "Motor %d rpm %d", motor_id,rpm);
+  //       }));
+  //     }
+  //   }
+
+  //   for (auto &t : tasks) t.wait();
+
+  //   return hardware_interface::return_type::OK;
+  // }
+
   hardware_interface::return_type BlvrDiffbotSystemHardware::write(const rclcpp::Time &, const rclcpp::Duration &)
   {
-    static std::vector<int> last_sent_rpm(hw_commands_.size(), std::numeric_limits<int>::quiet_NaN());
+    // Sentinel for "never sent". Use INT32_MIN so any realistic rpm differs.
+    static std::vector<int> last_sent_rpm(hw_commands_.size(), std::numeric_limits<int>::min());
+    static bool flip_order = false;  // alternate send order to avoid micro-bias
 
-    std::vector<std::future<void>> tasks;
+    // Precompute desired RPMs for this tick
+    struct Cmd { int motor_id; int rpm; };
+    std::array<Cmd, 2> cmds;
 
-    for (size_t i = 0; i < hw_commands_.size(); i++)
-    {
-      int motor_id = i + 1;
+    for (size_t i = 0; i < hw_commands_.size(); ++i) {
+      int motor_id = static_cast<int>(i) + 1;
       int motor_direction = (i % 2 == 0) ? 1 : -1;
-      int rpm = motor_direction * static_cast<int>(hw_commands_[i] * 60.0 * gear_ratio_ / (2.0 * M_PI));
-
-      if (rpm != last_sent_rpm[i])
-      {
-        last_sent_rpm[i] = rpm;
-        tasks.emplace_back(std::async(std::launch::async, [=]() {
-          std::this_thread::sleep_for(std::chrono::milliseconds(10));
-          serial_port_->writeSpeedCommand(motor_id, rpm);
-        }));
-      }
+      // round() gives more stable low-speed behavior
+      int rpm = motor_direction * static_cast<int>(std::llround(hw_commands_[i] * 60.0 * gear_ratio_ / (2.0 * M_PI)));
+      cmds[i] = {motor_id, rpm};
     }
 
-    for (auto &t : tasks) t.wait();
+    // Choose order: 1-2 then 2-1
+    auto send_idx0 = flip_order ? 1 : 0;
+    auto send_idx1 = flip_order ? 0 : 1;
+    flip_order = !flip_order;
 
+    // Send only when changed, but within the same control tick, sequentially
+    for (auto idx : {send_idx0, send_idx1}) {
+      if (cmds[idx].rpm != last_sent_rpm[idx]) {
+        serial_port_->writeSpeedCommand(cmds[idx].motor_id, cmds[idx].rpm);
+        RCLCPP_INFO(rclcpp::get_logger("BlvrDiffbotSystemHardware"),
+                    "Motor %d rpm %d", cmds[idx].motor_id, cmds[idx].rpm);
+        last_sent_rpm[idx] = cmds[idx].rpm;
+      }
+    }
     return hardware_interface::return_type::OK;
   }
+
 
 } // namespace blvr_diffbot_hardware
 
