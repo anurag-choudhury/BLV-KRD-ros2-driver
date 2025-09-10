@@ -24,6 +24,9 @@ namespace blvr_diffbot_hardware
 
     int setExcitation(int motor_id);
     int writeSpeedCommand(int motor_id, int rpm);
+    int broadcastTrigger(int start_reg, int pulse_us);
+    int readStepRpmTorque(int motor_id, int32_t* step, int32_t* rpm, int32_t* torque);
+    int readStepRpmTorqueNonBlocking(int motor_id, int32_t* step, int32_t* rpm, int32_t* torque);
 
     int readStep(int motor_id, int *step);
     int readRpm(int motor_id, int *rpm);

@@ -17,7 +17,7 @@
     <transmission name="${prefix}_trans" type="SimpleTransmission">
       <type>transmission_interface/SimpleTransmission</type>
         <actuator name="${prefix}_motor">
-          <mechanicalReduction>50</mechanicalReduction>
+          <mechanicalReduction>30</mechanicalReduction>
         </actuator>
       <joint name="${prefix}_joint">
         <hardwareInterface>hardware_interface/VelocityJointInterface</hardwareInterface>
@@ -51,7 +51,13 @@
   </xacro:macro> 
 
   <link name="base_link"/>
-
+<link name="laser"/>
+<joint name="laser_joint" type="fixed">
+  <parent link="body_link"/>
+  <child  link="laser"/>
+  <!-- use your real mount pose -->
+  <origin xyz="-0.14 0 0.04" rpy="0 0 0"/>
+</joint>
   <joint name="body_joint" type="fixed">
     <parent link="base_link"/>
     <child  link="body_link"/>
