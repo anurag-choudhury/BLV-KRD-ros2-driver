@@ -86,6 +86,9 @@ def generate_launch_description():
             "stdout": "screen",
             "stderr": "screen",
         },
+         remappings=[
+        ("diff_drive_controller/cmd_vel_unstamped", "cmd_vel_safe"),
+    ],
     )
     
     node_robot_state_publisher = Node(
@@ -110,10 +113,8 @@ def generate_launch_description():
         package="controller_manager",
         executable="spawner",
         arguments=["diff_drive_controller", "--controller-manager", "/controller_manager"],
-        remappings=[
-            ('/cmd_vel_stamped', '/diff_drive_controller/cmd_vel')
-        ],
     )
+
 
     velocity_converter = Node(
         package='velocity_pub',
@@ -152,14 +153,14 @@ def generate_launch_description():
     )
         
     return LaunchDescription([
-        joy,
-        teleop_joy_node,
+        # joy,
+        # teleop_joy_node,
         control_node,
         node_robot_state_publisher,
-        spawn_entity,
+        # spawn_entity,
         joint_state_broadcaster_spawner,
         diff_drive_controller_spawner,
-        velocity_converter,
+        # velocity_converter,
         #front_urg_node,
         #rear_urg_node,
         #stop_daemon_node,

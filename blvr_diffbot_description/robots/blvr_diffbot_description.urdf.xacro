@@ -53,10 +53,10 @@
   <link name="base_link"/>
 <link name="laser"/>
 <joint name="laser_joint" type="fixed">
-  <parent link="body_link"/>
+  <parent link="base_link"/>
   <child  link="laser"/>
   <!-- use your real mount pose -->
-  <origin xyz="-0.14 0 0.04" rpy="0 0 0"/>
+  <origin xyz="0.2 0 0.04" rpy="0 0 0"/>
 </joint>
   <joint name="body_joint" type="fixed">
     <parent link="base_link"/>
@@ -86,9 +86,20 @@
   <gazebo reference="body_link">
     <material>Gazebo/Gray</material>
   </gazebo>
-
-  <xacro:wheel_macro prefix="left_wheel"  parent="base_link" xyz="0 0.1 0.05"/>
-  <xacro:wheel_macro prefix="right_wheel" parent="base_link" xyz="0 -0.1 0.05"/>
+  <link name="camera_base_link"></link>
+  <link name="imu_link"></link>
+  <joint name="camera_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="camera_base_link"/>
+    <origin xyz="0.28  0.08 0.0" rpy="0 0 0"/>
+  </joint>
+  <joint name="imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child  link="imu_link"/>
+    <origin xyz="0.0  0.0 0.0" rpy="0 0 0"/>
+  </joint>
+  <xacro:wheel_macro prefix="left_wheel"  parent="base_link" xyz="0 0.25 0.05"/>
+  <xacro:wheel_macro prefix="right_wheel" parent="base_link" xyz="0 -0.25 0.05"/>
 
   <joint name="ball_joint" type="fixed">
     <parent link="base_link"/>

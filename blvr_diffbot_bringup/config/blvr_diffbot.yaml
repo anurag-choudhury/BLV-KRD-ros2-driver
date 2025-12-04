@@ -14,8 +14,8 @@ diff_drive_controller:
     left_wheel_names  : ['left_wheel_joint']
     right_wheel_names : ['right_wheel_joint']
 
-    wheel_separation : 0.54
-    wheel_radius : 0.11
+    wheel_separation : 0.5
+    wheel_radius : 0.10
     wheel_separation_multiplier : 1.0
     left_wheel_radius_multiplier : 1.0
     right_wheel_radius_multiplier : 1.0
@@ -24,14 +24,31 @@ diff_drive_controller:
     odom_frame_id: odom
     base_frame_id: base_link
 
-    pose_covariance_diagonal : [0.05, 0.05, 1000000.0, 1000000.0, 1000000.0, 0.05]
+    pose_covariance_diagonal : [0.05, 0.05, 1000000.0, 1000000.0, 1000000.0, 0.2]
     twist_covariance_diagonal: [0.05, 0.05, 1000000.0, 1000000.0, 1000000.0, 0.05]
 
-    enable_odom_tf: true
+    enable_odom_tf: false
 
-    cmd_vel_timeout: 3.0
-    publish_limited_velocity: false
-    # velocity_rolling_window_size: 10
+    velocity_rolling_window_size: 15
+
+ # Enable and align limits with smoother (>= or equal)
+    linear.x.has_velocity_limits: true
+    linear.x.has_acceleration_limits: true
+    linear.x.max_velocity: 0.40
+    linear.x.min_velocity: -0.40
+    linear.x.max_acceleration: 0.20     # slightly ≥ smoother’s |decel|
+    linear.x.min_acceleration: -0.15
+
+    angular.z.has_velocity_limits: true
+    angular.z.has_acceleration_limits: true
+    angular.z.max_velocity: 1.2
+    angular.z.min_velocity: -1.2
+    angular.z.max_acceleration: 0.7
+    angular.z.min_acceleration: -0.7
+
+    cmd_vel_timeout: 0.3
+    publish_limited_velocity: true
+
 
     # # limits
     # linear.x.has_velocity_limits: true
